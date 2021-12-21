@@ -74,26 +74,43 @@ class Pool
             }
         }
 
+        bool check_match(uint32_t i, uint32_t j)
+        {
+            auto a = users[i], b = users[j];
+            
+            int dt = abs(a.score - b.score);
+            int a_max_dif = waitTime[i] * 50;
+            int b_max_dif = waitTime[j] * 50;
+
+            return dt <= a_max_dif && dt <= b_max_dif;
+        }
+
         void match()
         {
+            for (uint32_t i = 0; i < waitTime.size(); i ++)
+                waitTime[i] ++;    // waiting time +1
+
             while (users.size() > 1)
             {
-                sort(users.begin(), users.end(), [&](User &a, User b){
-                        return a.score < b.score;
-                        });
-
                 bool flag = true;
-                for (uint32_t i = 1; i < users.size(); i ++)
+                for (uint32_t i = 0; i < users.size(); i ++)
                 {
-                    auto a = users[i - 1], b = users[i];
-                    if (b.score - a.score <= 50)
+                    for (uint32_t j = i + 1; j < users.size(); j ++)
                     {
-                        users.erase(users.begin() + i - 1, users.begin() + i + 1);
-                        save_result(a.id, b.id);
-
-                        flag = false;
-                        break;
+                        auto a = users[i], b = users[j];
+                        if (check_match(i, j))
+                        {
+                            users.erase(users.begin() + j);
+                            users.erase(users.begin() + i);
+                            waitTime.erase(waitTime.begin() + j);
+                            waitTime.erase(waitTime.begin() + i);
+                            save_result(a.id, b.id);
+                            flag = false;
+                            break;
+                        }
                     }
+
+                    if (!flag) break;
                 }
 
                 if (flag) break;
@@ -103,6 +120,7 @@ class Pool
         void add(User user)
         {
             users.push_back(user);
+            waitTime.push_back(0);
         }
 
         void remove(User user)
@@ -112,6 +130,7 @@ class Pool
                 if (users[i].id == user.id)
                 {
                     users.erase(users.begin() + i);
+                    waitTime.erase(waitTime.begin() + i);
                     break;
                 }
             }
@@ -119,6 +138,7 @@ class Pool
 
     private:
         vector<User> users;
+        vector<int> waitTime;    // unit: s
 }pool;
 
 
@@ -194,8 +214,6 @@ void consume_task()
             // Deal wtih task
             if (task.type == "add") pool.add(task.user);
             else if (task.type == "remove") pool.remove(task.user);
-
-            pool.match();
         }
     }
 }
